@@ -3,7 +3,6 @@ const cors = require('cors');
 const { DateTime } = require('luxon');
 const ical = require('node-ical');
 const axios = require('axios');
-const NodeCache = require('node-cache');
 
 const app = express();
 app.use(cors());
@@ -17,21 +16,22 @@ const CALENDARS = [
 ];
 
 const NAIROBI_TZ = 'Africa/Nairobi';
-const cache = new NodeCache({ stdTTL: 300 }); // Cache for 5 minutes
 
 async function fetchEventsFromCalendar(url) {
   try {
     console.log(`Fetching events from ${url}`);
-    const response = await axios.get(url);
+    const response = await axios.get(url, { timeout: 5000 }); // 5 second timeout
     const events = ical.sync.parseICS(response.data);
     console.log(`Fetched and parsed events from ${url}`);
-    return Object.values(events).filter(event => event.type === 'VEVENT').map(event => ({
-      summary: event.summary,
-      start: event.start.toISOString(),
-      end: event.end.toISOString()
-    }));
+    return Object.values(events)
+      .filter(event => event.type === 'VEVENT')
+      .map(event => ({
+        summary: event.summary,
+        start: event.start.toISOString(),
+        end: event.end.toISOString()
+      }));
   } catch (error) {
-    console.error(`Error fetching events from ${url}:`, error);
+    console.error(`Error fetching events from ${url}:`, error.message);
     return [];
   }
 }
@@ -64,22 +64,21 @@ app.get('/', (req, res) => {
 
 app.get('/api/events', async (req, res) => {
   try {
-    const cacheKey = 'events';
-    const cachedEvents = cache.get(cacheKey);
-
-    if (cachedEvents) {
-      console.log('Returning cached events');
-      return res.json(cachedEvents);
-    }
-
     console.log('Fetching events from all calendars');
-    const allEvents = await Promise.all(CALENDARS.map(fetchEventsFromCalendar));
-    console.log('Fetched events from all calendars');
-    const flattenedEvents = allEvents.flat();
-    const todayEvents = filterEventsForToday(flattenedEvents);
+    const calendarPromises = CALENDARS.map(fetchEventsFromCalendar);
+    const calendarResults = await Promise.allSettled(calendarPromises);
+
+    const allEvents = calendarResults
+      .filter(result => result.status === 'fulfilled')
+      .flatMap(result => result.value);
+
+    console.log('Filtering events for today');
+    const todayEvents = filterEventsForToday(allEvents);
+
+    console.log('Grouping events by summary');
     const groupedEvents = groupEventsBySummary(todayEvents);
 
-    cache.set(cacheKey, groupedEvents);
+    console.log('Sending response');
     res.json(groupedEvents);
   } catch (error) {
     console.error('Error processing events:', error);
