@@ -3,6 +3,7 @@ const cors = require('cors');
 const { DateTime } = require('luxon');
 const ical = require('node-ical');
 const axios = require('axios');
+const NodeCache = require('node-cache');
 
 const app = express();
 app.use(cors());
@@ -16,6 +17,7 @@ const CALENDARS = [
 ];
 
 const NAIROBI_TZ = 'Africa/Nairobi';
+const cache = new NodeCache({ stdTTL: 300 }); // Cache for 5 minutes
 
 async function fetchEventsFromCalendar(url) {
   try {
@@ -62,12 +64,22 @@ app.get('/', (req, res) => {
 
 app.get('/api/events', async (req, res) => {
   try {
+    const cacheKey = 'events';
+    const cachedEvents = cache.get(cacheKey);
+
+    if (cachedEvents) {
+      console.log('Returning cached events');
+      return res.json(cachedEvents);
+    }
+
     console.log('Fetching events from all calendars');
     const allEvents = await Promise.all(CALENDARS.map(fetchEventsFromCalendar));
     console.log('Fetched events from all calendars');
     const flattenedEvents = allEvents.flat();
     const todayEvents = filterEventsForToday(flattenedEvents);
     const groupedEvents = groupEventsBySummary(todayEvents);
+
+    cache.set(cacheKey, groupedEvents);
     res.json(groupedEvents);
   } catch (error) {
     console.error('Error processing events:', error);
