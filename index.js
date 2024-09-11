@@ -19,8 +19,10 @@ const NAIROBI_TZ = 'Africa/Nairobi';
 
 async function fetchEventsFromCalendar(url) {
   try {
+    console.log(`Fetching events from ${url}`);
     const response = await axios.get(url);
     const events = ical.sync.parseICS(response.data);
+    console.log(`Fetched and parsed events from ${url}`);
     return Object.values(events).filter(event => event.type === 'VEVENT').map(event => ({
       summary: event.summary,
       start: event.start.toISOString(),
@@ -60,7 +62,9 @@ app.get('/', (req, res) => {
 
 app.get('/api/events', async (req, res) => {
   try {
+    console.log('Fetching events from all calendars');
     const allEvents = await Promise.all(CALENDARS.map(fetchEventsFromCalendar));
+    console.log('Fetched events from all calendars');
     const flattenedEvents = allEvents.flat();
     const todayEvents = filterEventsForToday(flattenedEvents);
     const groupedEvents = groupEventsBySummary(todayEvents);
