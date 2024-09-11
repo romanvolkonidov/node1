@@ -20,7 +20,7 @@ const NAIROBI_TZ = 'Africa/Nairobi';
 async function fetchEventsFromCalendar(url) {
   try {
     console.log(`Fetching events from ${url}`);
-    const response = await axios.get(url, { timeout: 5000 }); // 5 second timeout
+    const response = await axios.get(url, { timeout: 5000 });
     const events = ical.sync.parseICS(response.data);
     console.log(`Fetched and parsed events from ${url}`);
     return Object.values(events)
@@ -62,28 +62,32 @@ app.get('/', (req, res) => {
   res.send('Calendar Events API is running');
 });
 
-app.get('/api/events', async (req, res) => {
-  try {
-    console.log('Fetching events from all calendars');
-    const calendarPromises = CALENDARS.map(fetchEventsFromCalendar);
-    const calendarResults = await Promise.allSettled(calendarPromises);
+app.get('/api/events', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Transfer-Encoding', 'chunked');
 
-    const allEvents = calendarResults
-      .filter(result => result.status === 'fulfilled')
-      .flatMap(result => result.value);
+  let allEvents = [];
 
-    console.log('Filtering events for today');
-    const todayEvents = filterEventsForToday(allEvents);
+  const processCalendar = async (url, index) => {
+    try {
+      const events = await fetchEventsFromCalendar(url);
+      allEvents = allEvents.concat(events);
+      const todayEvents = filterEventsForToday(allEvents);
+      const groupedEvents = groupEventsBySummary(todayEvents);
+      res.write(JSON.stringify({ progress: (index + 1) / CALENDARS.length, events: groupedEvents }));
+    } catch (error) {
+      console.error(`Error processing calendar ${url}:`, error);
+    }
+  };
 
-    console.log('Grouping events by summary');
-    const groupedEvents = groupEventsBySummary(todayEvents);
-
-    console.log('Sending response');
-    res.json(groupedEvents);
-  } catch (error) {
-    console.error('Error processing events:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
+  Promise.all(CALENDARS.map(processCalendar))
+    .then(() => {
+      res.end();
+    })
+    .catch((error) => {
+      console.error('Error processing events:', error);
+      res.status(500).end(JSON.stringify({ error: 'Internal server error' }));
+    });
 });
 
 const PORT = process.env.PORT || 3000;
