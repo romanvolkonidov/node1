@@ -76,7 +76,7 @@ app.get('/', (req, res) => {
   res.send('Calendar Events API is running');
 });
 
-app.get('/api/events', (req, res) => {
+app.get('/api/events', async (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Transfer-Encoding', 'chunked');
 
@@ -90,29 +90,24 @@ app.get('/api/events', (req, res) => {
 
   let allEvents = [];
 
-  const processCalendar = async (url, index) => {
-    try {
-      const events = await fetchEventsFromCalendar(url);
-      console.log(`Events from ${url}:`, events);
-      allEvents = allEvents.concat(events);
-      const todayEvents = filterEventsForToday(allEvents);
-      const uniqueEvents = removeDuplicates(todayEvents);
-      const groupedEvents = groupEventsBySummary(uniqueEvents);
-      res.write(JSON.stringify({ progress: (index + 1) / CALENDARS.length, events: groupedEvents }));
-    } catch (error) {
-      console.error(`Error processing calendar ${url}:`, error);
-    }
-  };
+  try {
+    const calendarPromises = CALENDARS.map(fetchEventsFromCalendar);
+    const calendarEvents = await Promise.all(calendarPromises);
 
-  Promise.all(CALENDARS.map(processCalendar))
-    .then(() => {
-      cache.set(cacheKey, allEvents);
-      res.end();
-    })
-    .catch((error) => {
-      console.error('Error processing events:', error);
-      res.status(500).end(JSON.stringify({ error: 'Internal server error' }));
+    calendarEvents.forEach(events => {
+      allEvents = allEvents.concat(events);
     });
+
+    const todayEvents = filterEventsForToday(allEvents);
+    const uniqueEvents = removeDuplicates(todayEvents);
+    const groupedEvents = groupEventsBySummary(uniqueEvents);
+
+    cache.set(cacheKey, groupedEvents);
+    res.end(JSON.stringify(groupedEvents));
+  } catch (error) {
+    console.error('Error processing events:', error);
+    res.status(500).end(JSON.stringify({ error: 'Internal server error' }));
+  }
 });
 
 const PORT = process.env.PORT || 3000;
