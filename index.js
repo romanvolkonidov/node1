@@ -50,6 +50,18 @@ function filterEventsForToday(events) {
   }));
 }
 
+function removeDuplicates(events) {
+  const seen = new Set();
+  return events.filter(event => {
+    const key = `${event.summary}-${event.start}-${event.end}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
 function groupEventsBySummary(events) {
   return events.reduce((acc, event) => {
     if (!acc[event.summary]) {
@@ -84,7 +96,8 @@ app.get('/api/events', (req, res) => {
       console.log(`Events from ${url}:`, events);
       allEvents = allEvents.concat(events);
       const todayEvents = filterEventsForToday(allEvents);
-      const groupedEvents = groupEventsBySummary(todayEvents);
+      const uniqueEvents = removeDuplicates(todayEvents);
+      const groupedEvents = groupEventsBySummary(uniqueEvents);
       res.write(JSON.stringify({ progress: (index + 1) / CALENDARS.length, events: groupedEvents }));
     } catch (error) {
       console.error(`Error processing calendar ${url}:`, error);
