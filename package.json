@@ -1,0 +1,23 @@
+{
+  "name": "calendar-events-api",
+  "version": "1.0.0",
+  "description": "API to fetch and process calendar events",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "axios": "^0.27.2",
+    "cors": "^2.8.5",
+    "express": "^4.18.1",
+    "luxon": "^3.0.1",
+    "node-ical": "^0.15.1"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.19"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
