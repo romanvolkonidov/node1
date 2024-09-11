@@ -54,6 +54,10 @@ function groupEventsBySummary(events) {
   }, {});
 }
 
+app.get('/', (req, res) => {
+  res.send('Calendar Events API is running');
+});
+
 app.get('/api/events', async (req, res) => {
   try {
     const allEvents = await Promise.all(CALENDARS.map(fetchEventsFromCalendar));
