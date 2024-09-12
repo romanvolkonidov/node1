@@ -9,14 +9,15 @@ const app = express();
 app.use(cors());
 
 const CALENDARS = [
-  'https://calendar.google.com/calendar/ical/violetta6520%40gmail.com/private-4668f11232a35223fb2b7f0224414ac9/basic.ics',
   'https://calendar.google.com/calendar/ical/romanvolkonidov%40gmail.com/private-1b2dd71a5440e4cd42c7c7d4d77fd554/basic.ics',
+  'https://calendar.google.com/calendar/ical/violetta6520%40gmail.com/private-4668f11232a35223fb2b7f0224414ac9/basic.ics',
+  'https://calendar.google.com/calendar/ical/violetta6520%40gmail.com/public/basic.ics',
   'https://calendar.google.com/calendar/ical/p8simije0nhss305jf5qak5sm0%40group.calendar.google.com/private-8471e32b9a066146ba0545efc6d5322d/basic.ics',
   'https://calendar.google.com/calendar/ical/o6bemnc7uc56hipv6t6lntccq4%40group.calendar.google.com/private-1f621ee25080da2111e7f1c5598322a9/basic.ics'
 ];
 
 const NAIROBI_TZ = 'Africa/Nairobi';
-const cache = new NodeCache(); // No stdTTL, we will handle expiration manually
+const cache = new NodeCache({ stdTTL: 300 }); // Cache for 5 minutes
 
 async function fetchEventsFromCalendar(url) {
   try {
@@ -71,7 +72,22 @@ function groupEventsBySummary(events) {
   }, {});
 }
 
-async function updateEventsCache() {
+app.get('/', (req, res) => {
+  res.send('Calendar Events API is running');
+});
+
+app.get('/api/events', async (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Transfer-Encoding', 'chunked');
+
+  const cacheKey = 'events';
+  const cachedEvents = cache.get(cacheKey);
+
+  if (cachedEvents) {
+    console.log('Returning cached events');
+    return res.end(JSON.stringify(cachedEvents));
+  }
+
   let allEvents = [];
 
   try {
@@ -86,43 +102,15 @@ async function updateEventsCache() {
     const uniqueEvents = removeDuplicates(todayEvents);
     const groupedEvents = groupEventsBySummary(uniqueEvents);
 
-    const now = DateTime.now().setZone(NAIROBI_TZ);
-    const nextDay = now.plus({ days: 1 }).startOf('day');
-    const ttl = nextDay.diff(now, 'seconds').seconds;
-
-    cache.set('events', groupedEvents, ttl);
-    console.log('Events cache updated');
+    cache.set(cacheKey, groupedEvents);
+    res.end(JSON.stringify(groupedEvents));
   } catch (error) {
-    console.error('Error updating events cache:', error);
-  }
-}
-
-// Schedule the updateEventsCache function to run every 96 seconds
-setInterval(updateEventsCache, 96000);
-
-// Initial cache update
-updateEventsCache();
-
-app.get('/', (req, res) => {
-  res.send('Calendar Events API is running');
-});
-
-app.get('/api/events', (req, res) => {
-  res.setHeader('Content-Type', 'application/json');
-  res.setHeader('Transfer-Encoding', 'chunked');
-
-  const cachedEvents = cache.get('events');
-
-  if (cachedEvents) {
-    console.log('Returning cached events');
-    return res.end(JSON.stringify(cachedEvents));
-  } else {
-    console.log('Cache is empty, returning empty response');
-    res.end(JSON.stringify({}));
+    console.error('Error processing events:', error);
+    res.status(500).end(JSON.stringify({ error: 'Internal server error' }));
   }
 });
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
