@@ -13,8 +13,7 @@ const CALENDARS = [
   'https://calendar.google.com/calendar/ical/violetta6520%40gmail.com/private-4668f11232a35223fb2b7f0224414ac9/basic.ics',
   'https://calendar.google.com/calendar/ical/violetta6520%40gmail.com/public/basic.ics',
   'https://calendar.google.com/calendar/ical/p8simije0nhss305jf5qak5sm0%40group.calendar.google.com/private-8471e32b9a066146ba0545efc6d5322d/basic.ics',
-  'https://calendar.google.com/calendar/ical/o6bemnc7uc56hipv6t6lntccq4%40group.calendar.google.com/private-1f621ee25080da2111e7f1c5598322a9/basic.ics',
-  'https://calendar.google.com/calendar/ical/romanvolkonidov%40gmail.com/public/basic.ics' // New calendar URL added here
+  'https://calendar.google.com/calendar/ical/o6bemnc7uc56hipv6t6lntccq4%40group.calendar.google.com/private-1f621ee25080da2111e7f1c5598322a9/basic.ics'
 ];
 
 const NAIROBI_TZ = 'Africa/Nairobi';
@@ -25,16 +24,14 @@ async function fetchEventsFromCalendar(url) {
     console.log(`Fetching events from ${url}`);
     const response = await axios.get(url, { timeout: 5000 });
     const events = ical.sync.parseICS(response.data);
-    console.log(`Fetched ${Object.keys(events).length} events from ${url}`);
-    const filteredEvents = Object.values(events)
+    console.log(`Fetched and parsed events from ${url}`);
+    return Object.values(events)
       .filter(event => event.type === 'VEVENT')
       .map(event => ({
         summary: event.summary,
         start: event.start.toISOString(),
         end: event.end.toISOString()
       }));
-    console.log(`Filtered to ${filteredEvents.length} VEVENT events from ${url}`);
-    return filteredEvents;
   } catch (error) {
     console.error(`Error fetching events from ${url}:`, error.message);
     return [];
@@ -43,8 +40,7 @@ async function fetchEventsFromCalendar(url) {
 
 function filterEventsForToday(events) {
   const today = DateTime.now().setZone(NAIROBI_TZ).startOf('day');
-  console.log(`Filtering events for today: ${today.toISO()}`);
-  const filteredEvents = events.filter(event => {
+  return events.filter(event => {
     const eventStart = DateTime.fromISO(event.start).setZone(NAIROBI_TZ);
     return eventStart.hasSame(today, 'day');
   }).map(event => ({
@@ -52,8 +48,6 @@ function filterEventsForToday(events) {
     local_start: DateTime.fromISO(event.start).setZone(NAIROBI_TZ).toFormat('yyyy-MM-dd HH:mm:ss'),
     local_end: DateTime.fromISO(event.end).setZone(NAIROBI_TZ).toFormat('yyyy-MM-dd HH:mm:ss')
   }));
-  console.log(`Filtered to ${filteredEvents.length} events for today`);
-  return filteredEvents;
 }
 
 function removeDuplicates(events) {
@@ -104,16 +98,9 @@ app.get('/api/events', async (req, res) => {
       allEvents = allEvents.concat(events);
     });
 
-    console.log(`Total fetched events: ${allEvents.length}`);
-
     const todayEvents = filterEventsForToday(allEvents);
-    console.log(`Today's events: ${todayEvents.length}`);
-
     const uniqueEvents = removeDuplicates(todayEvents);
-    console.log(`Unique events: ${uniqueEvents.length}`);
-
     const groupedEvents = groupEventsBySummary(uniqueEvents);
-    console.log(`Grouped events: ${Object.keys(groupedEvents).length} summaries`);
 
     cache.set(cacheKey, groupedEvents);
     res.end(JSON.stringify(groupedEvents));
