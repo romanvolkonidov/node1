@@ -13,7 +13,8 @@ const CALENDARS = [
   'https://calendar.google.com/calendar/ical/violetta6520%40gmail.com/private-4668f11232a35223fb2b7f0224414ac9/basic.ics',
   'https://calendar.google.com/calendar/ical/violetta6520%40gmail.com/public/basic.ics',
   'https://calendar.google.com/calendar/ical/p8simije0nhss305jf5qak5sm0%40group.calendar.google.com/private-8471e32b9a066146ba0545efc6d5322d/basic.ics',
-  'https://calendar.google.com/calendar/ical/o6bemnc7uc56hipv6t6lntccq4%40group.calendar.google.com/private-1f621ee25080da2111e7f1c5598322a9/basic.ics'
+  'https://calendar.google.com/calendar/ical/o6bemnc7uc56hipv6t6lntccq4%40group.calendar.google.com/private-1f621ee25080da2111e7f1c5598322a9/basic.ics',
+  'https://calendar.google.com/calendar/ical/romanvolkonidov%40gmail.com/public/basic.ics' // New calendar URL added here
 ];
 
 const NAIROBI_TZ = 'Africa/Nairobi';
