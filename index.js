@@ -24,14 +24,16 @@ async function fetchEventsFromCalendar(url) {
     console.log(`Fetching events from ${url}`);
     const response = await axios.get(url, { timeout: 5000 });
     const events = ical.sync.parseICS(response.data);
-    console.log(`Fetched and parsed events from ${url}`);
-    return Object.values(events)
+    console.log(`Fetched ${Object.keys(events).length} events from ${url}`);
+    const filteredEvents = Object.values(events)
       .filter(event => event.type === 'VEVENT')
       .map(event => ({
         summary: event.summary,
         start: event.start.toISOString(),
         end: event.end.toISOString()
       }));
+    console.log(`Filtered to ${filteredEvents.length} VEVENT events from ${url}`);
+    return filteredEvents;
   } catch (error) {
     console.error(`Error fetching events from ${url}:`, error.message);
     return [];
@@ -40,7 +42,8 @@ async function fetchEventsFromCalendar(url) {
 
 function filterEventsForToday(events) {
   const today = DateTime.now().setZone(NAIROBI_TZ).startOf('day');
-  return events.filter(event => {
+  console.log(`Filtering events for today: ${today.toISO()}`);
+  const filteredEvents = events.filter(event => {
     const eventStart = DateTime.fromISO(event.start).setZone(NAIROBI_TZ);
     return eventStart.hasSame(today, 'day');
   }).map(event => ({
@@ -48,6 +51,8 @@ function filterEventsForToday(events) {
     local_start: DateTime.fromISO(event.start).setZone(NAIROBI_TZ).toFormat('yyyy-MM-dd HH:mm:ss'),
     local_end: DateTime.fromISO(event.end).setZone(NAIROBI_TZ).toFormat('yyyy-MM-dd HH:mm:ss')
   }));
+  console.log(`Filtered to ${filteredEvents.length} events for today`);
+  return filteredEvents;
 }
 
 function removeDuplicates(events) {
@@ -98,16 +103,16 @@ app.get('/api/events', async (req, res) => {
       allEvents = allEvents.concat(events);
     });
 
-    console.log('All fetched events:', allEvents);
+    console.log(`Total fetched events: ${allEvents.length}`);
 
     const todayEvents = filterEventsForToday(allEvents);
-    console.log('Today\'s events:', todayEvents);
+    console.log(`Today's events: ${todayEvents.length}`);
 
     const uniqueEvents = removeDuplicates(todayEvents);
-    console.log('Unique events:', uniqueEvents);
+    console.log(`Unique events: ${uniqueEvents.length}`);
 
     const groupedEvents = groupEventsBySummary(uniqueEvents);
-    console.log('Grouped events:', groupedEvents);
+    console.log(`Grouped events: ${Object.keys(groupedEvents).length} summaries`);
 
     cache.set(cacheKey, groupedEvents);
     res.end(JSON.stringify(groupedEvents));
