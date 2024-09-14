@@ -98,9 +98,16 @@ app.get('/api/events', async (req, res) => {
       allEvents = allEvents.concat(events);
     });
 
+    console.log('All fetched events:', allEvents);
+
     const todayEvents = filterEventsForToday(allEvents);
+    console.log('Today\'s events:', todayEvents);
+
     const uniqueEvents = removeDuplicates(todayEvents);
+    console.log('Unique events:', uniqueEvents);
+
     const groupedEvents = groupEventsBySummary(uniqueEvents);
+    console.log('Grouped events:', groupedEvents);
 
     cache.set(cacheKey, groupedEvents);
     res.end(JSON.stringify(groupedEvents));
